@@ -1,0 +1,30 @@
+# Example migration files for autobot-sqlite plugin
+#
+# Create these files in your workspace:
+#
+# data/migrations/001_create_users.sql:
+#   CREATE TABLE users (
+#     id INTEGER PRIMARY KEY AUTOINCREMENT,
+#     name TEXT NOT NULL,
+#     email TEXT UNIQUE NOT NULL,
+#     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+#   );
+#
+# data/migrations/002_create_posts.sql:
+#   CREATE TABLE posts (
+#     id INTEGER PRIMARY KEY AUTOINCREMENT,
+#     user_id INTEGER NOT NULL,
+#     title TEXT NOT NULL,
+#     content TEXT,
+#     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+#     FOREIGN KEY (user_id) REFERENCES users(id)
+#   );
+#
+# data/migrations/003_add_indexes.sql:
+#   CREATE INDEX idx_users_email ON users(email);
+#   CREATE INDEX idx_posts_user_id ON posts(user_id);
+#   CREATE INDEX idx_posts_created_at ON posts(created_at);
+#
+# Then use in your agent:
+#   > sqlite_migrate(db: "app")
+#   > sqlite_query(db: "app", query: "SELECT * FROM users")

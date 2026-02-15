@@ -1,0 +1,21 @@
+name: autobot-sqlite
+version: 0.1.0
+
+authors:
+  - Vitalii Elenhaupt <velenhaupt@gmail.com>
+
+description: SQLite plugin for Autobot - manage databases with schema definitions
+
+crystal: ">= 1.14.0"
+
+license: MIT
+
+dependencies:
+  autobot:
+    github: crystal-autobot/autobot
+    version: ~> 0.1.0
+
+development_dependencies:
+  ameba:
+    github: crystal-ameba/ameba
+    version: ~> 1.6.0
