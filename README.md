@@ -1,140 +1,131 @@
 # autobot-sqlite
 
-SQLite plugin for Autobot - manage databases with declarative schema definitions.
+SQLite plugin for Autobot - give your agents persistent database storage.
 
 ## Features
 
+- 🗄️ **Simple API** - Just `sqlite_query` and `sqlite_migrate`
 - 📁 **Migration-based** - SQL files in `data/migrations/`
-- 📊 **Version tracking** - Tracks applied migrations
-- 🔒 **Sandboxed** - All operations via SandboxExecutor
-- 🎯 **Simple API** - `sqlite_query` and `sqlite_migrate`
+- 🔒 **Sandboxed** - Restricted to workspace
+- 🎯 **Skill-ready** - Works with Autobot skills
 
 ## Installation
 
-Add to your `shard.yml`:
+### As Dependency
 
 ```yaml
+# shard.yml
 dependencies:
-  autobot:
-    github: crystal-autobot/autobot
-    version: ~> 0.1.0
   autobot-sqlite:
     github: crystal-autobot/autobot-sqlite
     version: ~> 0.1.0
 ```
 
-## Setup
-
-Create migration files in your workspace:
-
-```
-workspace/
-├── data/
-│   ├── migrations/
-│   │   ├── 001_create_users.sql
-│   │   ├── 002_create_posts.sql
-│   │   └── 003_add_indexes.sql
-│   └── app.db  (auto-created)
+```crystal
+require "autobot-sqlite"  # Auto-registers plugin
 ```
 
-**Example migration (`001_create_users.sql`):**
-```sql
-CREATE TABLE users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+## Quick Start
 
-CREATE INDEX idx_users_email ON users(email);
+### 1. Create Migrations
+
+```bash
+mkdir -p workspace/data/migrations
 ```
 
-## Usage
-
-### 1. Run Migrations
-
-```
-> sqlite_migrate(db: "app")
-
-Applied 3 migrations:
-  ✓ 001_create_users.sql
-  ✓ 002_create_posts.sql
-  ✓ 003_add_indexes.sql
-```
-
-### 2. Query Database
-
-```
-> sqlite_query(db: "app", query: "SELECT * FROM users")
-
-> sqlite_query(db: "app", query: "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')")
-
-> sqlite_query(db: "app", query: "SELECT * FROM posts WHERE user_id = 1")
-```
-
-## Example: Task Tracker
-
-**Create migrations:**
-
-`data/migrations/001_create_tasks.sql`:
+`workspace/data/migrations/001_create_tasks.sql`:
 ```sql
 CREATE TABLE tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,
-  description TEXT,
   status TEXT DEFAULT 'pending',
-  priority INTEGER DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-
 CREATE INDEX idx_tasks_status ON tasks(status);
 ```
 
-**Use in agent:**
+### 2. Use in Agent
+
+Migrations run automatically on first query:
+
 ```
-> Run migrations for tasks database
-[sqlite_migrate(db: "tasks")]
+User: Create a task to review PR #123
 
-> Create a new task
-[sqlite_query(db: "tasks", query: "INSERT INTO tasks (title) VALUES ('Fix bug')")]
+Agent: [sqlite_query(db: "tasks", query: "INSERT INTO tasks (title) VALUES ('Review PR #123')")]
+       # Auto-applies 001_create_tasks.sql on first use
 
-> Show pending tasks
-[sqlite_query(db: "tasks", query: "SELECT * FROM tasks WHERE status = 'pending'")]
-```
+User: Show pending tasks
 
-## Security
-
-- ✅ All operations sandboxed via SandboxExecutor
-- ✅ Databases restricted to workspace (`data/*.db`)
-- ✅ Cannot access system files or parent directories
-- ✅ Read-only mode available (block INSERT/UPDATE/DELETE)
-
-## Migration Tracking
-
-The tool automatically tracks applied migrations in `schema_migrations` table:
-
-```sql
-sqlite> SELECT * FROM schema_migrations;
-version                    | applied_at
----------------------------|----------------------------
-001_create_users.sql       | 2026-02-15 14:30:00
-002_create_posts.sql       | 2026-02-15 14:30:01
-003_add_indexes.sql        | 2026-02-15 14:30:02
+Agent: [sqlite_query(db: "tasks", query: "SELECT * FROM tasks WHERE status = 'pending'")]
 ```
 
-**Migrations run in alphabetical order** - use numbered prefixes (001_, 002_, etc.)
+## Create a Database Skill
+
+Optional but recommended - teach your agent how to use databases.
+
+`workspace/skills/database/SKILL.md`:
+```markdown
+---
+name: database
+description: "Manage SQLite databases"
+---
+
+# Database Skill
+
+Use `sqlite_query(db: "name", query: "SQL")` to store persistent data.
+
+Migrations in `data/migrations/` run automatically on first query.
+
+## Examples
+
+**Add task:**
+\`\`\`
+sqlite_query(db: "tasks", query: "INSERT INTO tasks (title) VALUES ('Fix bug')")
+\`\`\`
+
+**List tasks:**
+\`\`\`
+sqlite_query(db: "tasks", query: "SELECT * FROM tasks WHERE status = 'pending'")
+\`\`\`
+
+**Update task:**
+\`\`\`
+sqlite_query(db: "tasks", query: "UPDATE tasks SET status = 'done' WHERE id = 5")
+\`\`\`
+```
+
+## Tools Reference
+
+### sqlite_query(db: "name", query: "SQL")
+Execute SQL query. Automatically runs pending migrations on first use.
+
+### sqlite_migrate(db: "name")
+*Optional* - Manually trigger migrations. Usually not needed since they run automatically.
+
+```
+sqlite_migrate(db: "tasks")
+```
+
+## FAQ
+
+**Do migrations run automatically?**
+Yes! Migrations in `data/migrations/*.sql` apply automatically on the first query to each database. You can also manually run `sqlite_migrate(db: "name")` if needed.
+
+**Can I have multiple databases?**
+Yes! Each `db` parameter is a separate file: `data/tasks.db`, `data/notes.db`, etc.
+
+**How do I reset a database?**
+Delete the `.db` file and re-run migrations: `rm workspace/data/tasks.db`
+
+**What about SQL injection?**
+The plugin doesn't provide parameterized queries. Teach your skill to escape single quotes: `'` → `''`
 
 ## Development
 
 ```bash
-# Install dependencies
 shards install
-
-# Run tests
 crystal spec
-
-# Build
-crystal build src/autobot/tools/sqlite_tool.cr
+./bin/ameba
 ```
 
 ## License

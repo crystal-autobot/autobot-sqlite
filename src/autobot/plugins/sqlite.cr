@@ -41,7 +41,7 @@ module Autobot
       end
 
       def description : String
-        "Execute SQL queries on SQLite databases. Use sqlite_migrate first to set up schema."
+        "Execute SQL queries on SQLite databases. Migrations in data/migrations/ run automatically on first use."
       end
 
       def parameters : ToolSchema
@@ -58,9 +58,33 @@ module Autobot
         db_name = params["db"].as_s
         query = params["query"].as_s
 
+        # Auto-migrate if database is new or has pending migrations
+        auto_migrate_result = auto_migrate_if_needed(db_name)
+        return auto_migrate_result unless auto_migrate_result.success?
+
         db_path = get_database_path(db_name)
         command = build_sqlite_command(db_path, query)
         @executor.exec(command, timeout: QUERY_TIMEOUT)
+      end
+
+      private def auto_migrate_if_needed(db_name : String) : ToolResult
+        db_path = get_database_path(db_name)
+
+        # Initialize schema_migrations table
+        init_result = initialize_migrations_table(db_path)
+        return init_result unless init_result.success?
+
+        # Check for pending migrations
+        migration_files = get_migration_files
+        return ToolResult.success("") unless migration_files.is_a?(Array)
+        return ToolResult.success("") if migration_files.empty?
+
+        applied_migrations = get_applied_migrations(db_path)
+        pending = migration_files.reject { |file| applied_migrations.includes?(file) }
+        return ToolResult.success("") if pending.empty?
+
+        # Apply pending migrations silently
+        apply_migrations(db_path, pending)
       end
 
       def run_migrations(db_name : String) : ToolResult
